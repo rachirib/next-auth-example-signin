@@ -1,112 +1,101 @@
-> The example repository is maintained from a [monorepo](https://github.com/nextauthjs/next-auth/tree/main/apps/examples/nextjs). Pull Requests should be opened against [`nextauthjs/next-auth`](https://github.com/nextauthjs/next-auth).
-
-<p align="center">
-   <br/>
-   <a href="https://authjs.dev" target="_blank"><img width="150px" src="https://authjs.dev/img/logo-sm.png" /></a>
-   <h3 align="center">NextAuth.js Example App</h3>
-   <p align="center">
-   Open Source. Full Stack. Own Your Data.
-   </p>
-   <p align="center" style="align: center;">
-      <a href="https://npm.im/next-auth">
-        <img alt="npm" src="https://img.shields.io/npm/v/next-auth?color=green&label=next-auth">
-      </a>
-      <a href="https://bundlephobia.com/result?p=next-auth-example">
-        <img src="https://img.shields.io/bundlephobia/minzip/next-auth?label=next-auth" alt="Bundle Size"/>
-      </a>
-      <a href="https://www.npmtrends.com/next-auth">
-        <img src="https://img.shields.io/npm/dm/next-auth?label=next-auth%20downloads" alt="Downloads" />
-      </a>
-      <a href="https://npm.im/next-auth">
-        <img src="https://img.shields.io/badge/npm-TypeScript-blue" alt="TypeScript" />
-      </a>
-   </p>
-</p>
+# NextAuth.js Authentication Bug Reproduction
 
 ## Overview
 
-NextAuth.js is a complete open source authentication solution.
+This repository is based on the [nextjs-auth-example](https://github.com/nextauthjs/next-auth-example). Please read their [readme](https://github.com/nextauthjs/next-auth-example?tab=readme-ov-file#getting-started) for initial setup instructions.
 
-This is an example application that shows how `next-auth` is applied to a basic Next.js app.
+This sample reproduces a bug where hostnames containing the word `signin` break the authentication callback, causing incorrect URL redirection.
 
-The deployed version can be found at [`next-auth-example.vercel.app`](https://next-auth-example.vercel.app)
+## Bug Description
 
-### About NextAuth.js
+When using a hostname that contains the word `signin`, NextAuth.js incorrectly redirects to a URL that replaces `signin` with `callback` during the authentication flow.
 
-NextAuth.js is an easy to implement, full-stack (client/server) open source authentication library originally designed for [Next.js](https://nextjs.org) and [Serverless](https://vercel.com). Our goal is to [support even more frameworks](https://github.com/nextauthjs/next-auth/issues/2294) in the future.
+**Expected behavior:** Authentication should work regardless of hostname  
+**Actual behavior:** Hostname `signin.vercel.add` redirects to `callback.vercel.add`
 
-Go to [next-auth.js.org](https://authjs.dev) for more information and documentation.
+## Project Configuration
 
-> _NextAuth.js is not officially associated with Vercel or Next.js._
+This sample includes the following modifications from the base example:
 
-## Getting Started
+- **Next.js:** Version 14
+- **NextAuth.js:** Version 5.0.0-beta.22
+- **Authentication Provider:** Simple Credentials provider
+  - Username: `jsmith`
+  - Password: `verysecret122@`
+- **Custom Login Page:** Located at `app/login`
 
-### 1. Clone the repository and install dependencies
+## Prerequisites
 
-```
-git clone https://github.com/nextauthjs/next-auth-example.git
-cd next-auth-example
-pnpm install
-```
+- Node.js and pnpm installed
+- `mkcert` for SSL certificate generation (macOS: `brew install mkcert`)
 
-### 2. Configure your local environment
+## Reproduction Steps
 
-Copy the .env.local.example file in this directory to .env.local (which will be ignored by Git):
+### 1. Initial Setup
 
-```
-cp .env.local.example .env.local
-```
+Follow the [nextjs-auth-example setup instructions](https://github.com/nextauthjs/next-auth-example?tab=readme-ov-file#getting-started) to configure the project.
 
-Add details for one or more providers (e.g. Google, Twitter, GitHub, Email, etc).
+### 2. Verify Normal Functionality
 
-#### Database
+Test that authentication works with localhost:
 
-A database is needed to persist user accounts and to support email sign in. However, you can still use NextAuth.js for authentication without a database by using OAuth for authentication. If you do not specify a database, [JSON Web Tokens](https://jwt.io/introduction) will be enabled by default.
-
-You **can** skip configuring a database and come back to it later if you want.
-
-For more information about setting up a database, please check out the following links:
-
-- Docs: [authjs.dev/reference/core/adapters](https://authjs.dev/reference/core/adapters)
-
-### 3. Configure Authentication Providers
-
-1. Review and update options in `auth.ts` as needed.
-
-2. When setting up OAuth, in the developer admin page for each of your OAuth services, you should configure the callback URL to use a callback path of `{server}/api/auth/callback/{provider}`.
-
-e.g. For Google OAuth you would use: `http://localhost:3000/api/auth/callback/google`
-
-A list of configured providers and their callback URLs is available from the endpoint `api/auth/providers`. You can find more information at https://authjs.dev/getting-started/providers/oauth-tutorial
-
-1. You can also choose to specify an SMTP server for passwordless sign in via email.
-
-### 4. Start the application
-
-To run your site locally, use:
-
-```
-pnpm run dev
+```bash
+pnpm dev
 ```
 
-To run it in production mode, use:
+Navigate to `http://localhost:3000` and `Sign in`. This should work correctly.
 
+### 3. Reproduce the Bug
+
+#### Step 3.1: Add Host Alias
+
+Add a hostname containing "signin" to your `/etc/hosts` file:
+
+```bash
+# Add this line to /etc/hosts
+127.0.0.1       signin.vercel.add
 ```
-pnpm run build
-pnpm run start
+
+#### Step 3.2: Generate SSL Certificates
+
+Since non-localhost domains require HTTPS for authentication:
+
+```bash
+# Install and configure mkcert (if not already done)
+brew install mkcert
+mkcert --install
+
+# Generate certificates for the test domain
+mkcert localhost 127.0.0.1 ::1 signin.vercel.add
 ```
 
-### 5. Preparing for Production
+This will create `signin.vercel.add+3.pem` and `signin.vercel.add+3-key.pem` files.
 
-Follow the [Deployment documentation](https://authjs.dev/getting-started/deployment)
+#### Step 3.3: Run with HTTPS
 
-## Acknowledgements
+Start the development server with HTTPS and custom hostname:
 
-<a href="https://vercel.com?utm_source=nextauthjs&utm_campaign=oss">
-<img width="170px" src="https://raw.githubusercontent.com/nextauthjs/next-auth/main/docs/public/img/etc/powered-by-vercel.svg" alt="Powered By Vercel" />
-</a>
-<p align="left">Thanks to Vercel sponsoring this project by allowing it to be deployed for free for the entire NextAuth.js Team</p>
+```bash
+pnpm dev --hostname signin.vercel.add --experimental-https --experimental-https-key ./signin.vercel.add+3-key.pem --experimental-https-cert ./signin.vercel.add+3.pem
+```
 
-## License
+#### Step 3.4: Trigger the Bug
 
-ISC
+1. Navigate to `https://signin.vercel.add:3000`
+2. Click `Sign in` and enter credentials:
+   - Username: `jsmith`
+   - Password: `verysecret122@`
+3. **Observe the bug:** The browser will incorrectly redirect to `https://callback.vercel.add:3000` instead of staying on `signin.vercel.add`
+
+## Expected vs Actual Behavior
+
+| Scenario | Expected Redirect | Actual Redirect | Status |
+|----------|------------------|-----------------|---------|
+| `localhost:3000` | `localhost:3000/api/auth/callback` | `localhost:3000/api/auth/callback` | ✅ Works |
+| `signin.vercel.add:3000` | `signin.vercel.add:3000/api/auth/callback` | `callback.vercel.add:3000/api/auth/callback` | ❌ Bug |
+
+## Technical Notes
+
+- The issue only occurs with hostnames containing the substring `signin`
+- The bug appears to be related to string replacement logic in NextAuth.js callback URL generation [lines](https://github.com/nextauthjs/next-auth/blob/39dd3b92de194c1a835f2d87631f4deb9d9fdf65/packages/next-auth/src/lib/actions.ts#L65-L67)
+- SSL certificates are required for non-localhost testing due to authentication security requirements
